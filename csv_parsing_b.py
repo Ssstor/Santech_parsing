@@ -6,7 +6,7 @@ data = [
     [] 
 ]
 
-category = 'мебель-для-ванной-комнаты'
+category = 'газовые-котлы-и-комплектующие'
 
 def gen_attributes(params, product_num):
 
@@ -47,7 +47,16 @@ def gen_pnid_names():
 
 
 def gen_pnid_values(prodsoup, product_num):
-    data[product_num].append(category)
+    category_d = []
+
+    category_con = prodsoup.select('span[itemprop="name"]')[1:-1] 
+    
+    for category in category_con:
+        category_d.append(category.text)
+
+    categories = ' > '.join(category_d)
+
+    data[product_num].append(categories)
 
     price = prodsoup.find(class_ = 'card-info__price_value')
     
@@ -137,11 +146,13 @@ def parse_site():
 
         product_num = main(products, product_num)
 
-        print(f'{page_number}/{last_page}...')
+        print(f'{page_number}/{last_page} parsed...')
     
     with open('products.csv', 'w') as file:
         writer = csv.writer(file)
         writer.writerows(data)
+
+    print('File generated!')
 
 
 parse_site()
