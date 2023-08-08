@@ -6,7 +6,7 @@ class SantechParserSpider(scrapy.Spider):
     name = 'santech_parser'
     allowed_domains = ['santeh-kirov.ru']
     start_urls = ['https://santeh-kirov.ru/']
-    category = 'газовые-котлы-и-комплектующие'
+    url = open('url.txt', 'r').read().strip()  # 'https://santeh-kirov.ru/категория/газовые-котлы-и-комплектующие'
     pages_count = 1
     # useragent = UserAgent()
     custom_settings = {
@@ -15,7 +15,7 @@ class SantechParserSpider(scrapy.Spider):
     attributes_count = 0
 
     def start_requests(self):
-        yield scrapy.Request(f'https://santeh-kirov.ru/категория/{self.category}', callback=self.parse_pages_count)
+        yield scrapy.Request(self.url, callback=self.parse_pages_count)
 
 
     def parse_pages_count(self, response):
@@ -26,7 +26,7 @@ class SantechParserSpider(scrapy.Spider):
             pass
 
         for page in range(1, self.pages_count + 1):
-            url = f'https://santeh-kirov.ru/категория/{self.category}?PAGEN_6={page}'
+            url = f'{self.url}?PAGEN_6={page}'
             yield scrapy.Request(url, callback=self.parse_url)
 
 
@@ -69,14 +69,14 @@ class SantechParserSpider(scrapy.Spider):
         attribute_names = response.xpath('//div[@class = "card-tabs__item_table"]/div/div[1]/text()').extract()
 
         for attribute_name in attribute_names:
-            attribute_num = attribute_names.index(attribute_name) 
+            attribute_num = attribute_names.index(attribute_name) + 1 
             item[f'Attribute {attribute_num} name'] = attribute_name
 
 
         attribute_values = response.xpath('//div[@class = "card-tabs__item_table"]/div/div[2]/text()').extract()
 
         for attribute_value in attribute_values:
-            attribute_num = attribute_values.index(attribute_value) 
+            attribute_num = attribute_values.index(attribute_value) + 1
 
             item[f'Attribute {attribute_num} value(s)'] = attribute_value        
         
