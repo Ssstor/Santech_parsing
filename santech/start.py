@@ -1,6 +1,10 @@
+import argparse
 import os
 
-url = 'https://santeh-kirov.ru/категория/газовые-котлы-и-комплектующие' 
+aparser = argparse.ArgumentParser(description='Запуск парсера')
+aparser.add_argument('url')
+
+url = aparser.parse_args().url 
 
 open(os.path.realpath(__file__).split('start.py')[0] + 'url.txt', 'w').write(url)
 
