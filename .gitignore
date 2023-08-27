@@ -3,3 +3,4 @@ env/
 __pycache__/
 products.csv
 data.csv
+santech/url.txt

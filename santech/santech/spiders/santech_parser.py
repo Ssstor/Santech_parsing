@@ -10,7 +10,7 @@ class SantechParserSpider(scrapy.Spider):
     pages_count = 1
     # useragent = UserAgent()
     custom_settings = {
-        'FEEDS': { 'products.csv': { 'format': 'csv',}}
+        'FEEDS': { 'products.csv': { 'format': 'csv', 'overwrite': True}}
     }
     attributes_count = 0
 
