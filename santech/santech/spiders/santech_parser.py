@@ -1,6 +1,13 @@
-# from fake_useragent import UserAgent
+from woocommerce import API
 import scrapy
 
+
+wcm = API(    
+    url='https://sanstart.ru',
+    consumer_key='ck_0a4297e6093ee5a75df83a36f82d5c2e7bfbab0c',
+    consumer_secret='cs_b46226294c404f7d4fd53b83f50d7c0d827e0816',
+    version='wc/v3'
+)
 
 class SantechParserSpider(scrapy.Spider):
     name = 'santech_parser'
@@ -13,6 +20,11 @@ class SantechParserSpider(scrapy.Spider):
         'FEEDS': { 'products.csv': { 'format': 'csv', 'overwrite': True}}
     }
     attributes_count = 0
+    categories = wcm.get('products/categories').json()
+    root_category = url.split('https://santeh-kirov.ru/категория/')[-1].replace('-', ' ').capitalize()
+
+
+    
 
     def start_requests(self):
         yield scrapy.Request(self.url, callback=self.parse_pages_count)
@@ -37,12 +49,52 @@ class SantechParserSpider(scrapy.Spider):
 
 
     def parse(self, response):
+        category_id = None
+        category_name = response.xpath('//span[@itemprop = "name"]/text()').extract()[-2]
+
+        wcm = API(    
+            url='https://sanstart.ru',
+            consumer_key='ck_0a4297e6093ee5a75df83a36f82d5c2e7bfbab0c',
+            consumer_secret='cs_b46226294c404f7d4fd53b83f50d7c0d827e0816',
+            version='wc/v3'
+        )
+
+        for category in self.categories:
+            if category['name'] == category_name:
+                category_id = category['id']
+                break
+
+        if category_id == None:
+            root_category_id = None
+
+            for category in self.categories:
+                if category['name'] == self.root_category:
+                    root_category_id = category['id']
+                    break
+
+
+            new_category_data = {
+                'name': category_name,
+                'parent': root_category_id
+
+            }
+
+            wcm.post('products/categories', new_category_data).json()
+
+            categories = wcm.get('products/categories').json()
+
+            for category in categories:
+                if category['name'] == category_name:
+                    category_id = category['id']
+                    break
+
         try:
             item = {
+                'test': self.categories[0],
                 'sku': response.xpath('//div[@class = "card-tabs__item_row"]/div[2]/text()').extract()[0],
                 'name': response.xpath('//h1[@class = "card-info__title"]/text()').extract_first('').strip(),
-                'categories': ' > '.join(response.xpath('//span[@itemprop = "name"]/text()').extract()[1:-1]),
-                'images': 'https://santeh-kirov.ru' + response.xpath('//a[@class = "card-img"]/@href').extract()[0],
+                'categories': [{'id': category_id}],
+                'images': [{'src': 'https://santeh-kirov.ru' + response.xpath('//a[@class = "card-img"]/@href').extract()[0]}],
                 'description': response.xpath('//div[@class = "card-tabs__item_text "]/text()').extract()[0].strip(),
                 'Visibility in catalog': 'visible',
                 'regular price': response.xpath('//div[@class = "card-info__price_value"]/text()').extract()[0].strip(),
@@ -52,8 +104,8 @@ class SantechParserSpider(scrapy.Spider):
             item = {
                 'sku': response.xpath('//div[@class = "card-tabs__item_row"]/div[2]/text()').extract()[0],
                 'name': response.xpath('//h1[@class = "card-info__title"]/text()').extract_first('').strip(),
-                'categories': ' > '.join(response.xpath('//span[@itemprop = "name"]/text()').extract()[1:-1]),
-                'images': 'https://santeh-kirov.ru' + response.xpath('//a[@class = "card-img"]/@href').extract()[0],
+                'categories': [{'id': category_id}],
+                'images': [{'src': 'https://santeh-kirov.ru' + response.xpath('//a[@class = "card-img"]/@href').extract()[0]}],
                 'description': response.xpath('//div[@class = "card-tabs__item_text "]/text()').extract()[0].strip(),
                 'Visibility in catalog': 'hidden',
                 'regular price': 'Под заказ',
@@ -80,6 +132,7 @@ class SantechParserSpider(scrapy.Spider):
 
             item[f'Attribute {attribute_num} value(s)'] = attribute_value        
         
+        wcm.post('products', item).json()
 
         yield item
  
