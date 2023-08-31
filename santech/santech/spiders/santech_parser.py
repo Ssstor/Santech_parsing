@@ -10,6 +10,26 @@ wcm = API(
     version='wc/v3'
 )
 
+
+def get_categories(wcm):
+    per_page = 100
+    page = 1
+    categories = []
+
+    while True:
+        params = {'per_page': per_page, 'page': page}
+        response = wcm.get('products/categories', params=params)
+        if not response.ok:
+            break
+        current_categories = response.json()
+        if not current_categories:
+            break
+        categories.extend(current_categories)
+        page += 1
+
+    return categories
+
+
 class SantechParserSpider(scrapy.Spider):
     name = 'santech_parser'
     allowed_domains = ['santeh-kirov.ru']
@@ -21,8 +41,7 @@ class SantechParserSpider(scrapy.Spider):
         'FEEDS': { 'products.csv': { 'format': 'csv', 'overwrite': True}}
     }
     attributes_count = 0
-    categories = wcm.get('products/categories').json()
-    parent_category = url.split('https://santeh-kirov.ru/категория/')[1].replace('-', ' ').capitalize()
+    categories = get_categories(wcm)
 
 
     
@@ -50,8 +69,9 @@ class SantechParserSpider(scrapy.Spider):
 
 
     def parse(self, response):
-        category_id = 1468
+        category_id = None
         category_name = response.xpath('//span[@itemprop = "name"]/text()').extract()[-2]
+        parent_category = response.xpath('//span[@itemprop = "name"]/text()').extract()[1]
 
         wcm = API(    
             url='https://sanstart.ru',
@@ -71,36 +91,33 @@ class SantechParserSpider(scrapy.Spider):
             new_category_data = None
 
             for category in self.categories:
-                if category['name'] == self.parent_category:
+                if category['name'] == parent_category:
                     parent_category_id = category['id']
                     break
 
             if parent_category_id == None:
                 parent_category_data = {
-                    'name': self.parent_category,
-                    'id': randint(10, 500)
+                    'name': parent_category,
                 }
-
-                self.log(wcm.post('products/categories/', parent_category_data).json())
-
-                parent_category_id = parent_category_data['id']
+                
+                parent_category_id = wcm.post('products/categories', parent_category_data).json()['id']
 
                 new_category_data = {
                     'name': category_name,
-                    # 'parent': parent_category_id
+                    'parent': parent_category_id
 
                 }
 
             else:
                 new_category_data = {
                     'name': category_name,
-                    # 'parent': parent_category_id
+                    'parent': parent_category_id
 
                 }
 
             self.log(wcm.post('products/categories', new_category_data).json())
 
-            categories = wcm.get('products/categories').json()
+            categories = get_categories(wcm)
 
             for category in categories:
                 if category['name'] == category_name:
@@ -151,7 +168,7 @@ class SantechParserSpider(scrapy.Spider):
 
             item['attributes'][attribute_num]['options'] = [attribute_value]
 
-        self.log(wcm.post('products', item).json())
+        wcm.post('products', item).json()
 
         yield item
  
