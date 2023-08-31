@@ -1,3 +1,4 @@
+from random import randint
 from woocommerce import API
 import scrapy
 
@@ -21,7 +22,7 @@ class SantechParserSpider(scrapy.Spider):
     }
     attributes_count = 0
     categories = wcm.get('products/categories').json()
-    root_category = url.split('https://santeh-kirov.ru/категория/')[-1].replace('-', ' ').capitalize()
+    parent_category = url.split('https://santeh-kirov.ru/категория/')[1].replace('-', ' ').capitalize()
 
 
     
@@ -49,14 +50,15 @@ class SantechParserSpider(scrapy.Spider):
 
 
     def parse(self, response):
-        category_id = None
+        category_id = 1468
         category_name = response.xpath('//span[@itemprop = "name"]/text()').extract()[-2]
 
         wcm = API(    
             url='https://sanstart.ru',
             consumer_key='ck_0a4297e6093ee5a75df83a36f82d5c2e7bfbab0c',
             consumer_secret='cs_b46226294c404f7d4fd53b83f50d7c0d827e0816',
-            version='wc/v3'
+            version='wc/v3',
+            wp_api=True
         )
 
         for category in self.categories:
@@ -65,21 +67,38 @@ class SantechParserSpider(scrapy.Spider):
                 break
 
         if category_id == None:
-            root_category_id = None
+            parent_category_id = None
+            new_category_data = None
 
             for category in self.categories:
-                if category['name'] == self.root_category:
-                    root_category_id = category['id']
+                if category['name'] == self.parent_category:
+                    parent_category_id = category['id']
                     break
 
+            if parent_category_id == None:
+                parent_category_data = {
+                    'name': self.parent_category,
+                    'id': randint(10, 500)
+                }
 
-            new_category_data = {
-                'name': category_name,
-                'parent': root_category_id
+                self.log(wcm.post('products/categories/', parent_category_data).json())
 
-            }
+                parent_category_id = parent_category_data['id']
 
-            wcm.post('products/categories', new_category_data).json()
+                new_category_data = {
+                    'name': category_name,
+                    # 'parent': parent_category_id
+
+                }
+
+            else:
+                new_category_data = {
+                    'name': category_name,
+                    # 'parent': parent_category_id
+
+                }
+
+            self.log(wcm.post('products/categories', new_category_data).json())
 
             categories = wcm.get('products/categories').json()
 
@@ -90,14 +109,14 @@ class SantechParserSpider(scrapy.Spider):
 
         try:
             item = {
-                'test': self.categories[0],
                 'sku': response.xpath('//div[@class = "card-tabs__item_row"]/div[2]/text()').extract()[0],
                 'name': response.xpath('//h1[@class = "card-info__title"]/text()').extract_first('').strip(),
                 'categories': [{'id': category_id}],
                 'images': [{'src': 'https://santeh-kirov.ru' + response.xpath('//a[@class = "card-img"]/@href').extract()[0]}],
                 'description': response.xpath('//div[@class = "card-tabs__item_text "]/text()').extract()[0].strip(),
-                'Visibility in catalog': 'visible',
-                'regular price': response.xpath('//div[@class = "card-info__price_value"]/text()').extract()[0].strip(),
+                'catalog_visibility': 'visible',
+                'regular_price': response.xpath('//div[@class = "card-info__price_value"]/text()').extract()[0].strip(),
+                'attributes': []
             }
 
         except:
@@ -107,32 +126,32 @@ class SantechParserSpider(scrapy.Spider):
                 'categories': [{'id': category_id}],
                 'images': [{'src': 'https://santeh-kirov.ru' + response.xpath('//a[@class = "card-img"]/@href').extract()[0]}],
                 'description': response.xpath('//div[@class = "card-tabs__item_text "]/text()').extract()[0].strip(),
-                'Visibility in catalog': 'hidden',
-                'regular price': 'Под заказ',
-
+                'catalog_visibility': 'hidden',
+                'regular_price': 'Под заказ',
+                'attributes': []
             }
 
         if 'нет' in response.xpath('//div[@class = "card-info__table_col"]/text()').extract()[-2].strip():
-            item['In stock?'] = '2'
+            item['stock_status'] = 'outofstock'
 
         else:
-            item['In stock?'] = '1'
+            item['stock_status'] = 'instock'
         
         attribute_names = response.xpath('//div[@class = "card-tabs__item_table"]/div/div[1]/text()').extract()
 
         for attribute_name in attribute_names:
-            attribute_num = attribute_names.index(attribute_name) + 1 
-            item[f'Attribute {attribute_num} name'] = attribute_name
+            attribute_num = attribute_names.index(attribute_name)
 
+            item['attributes'].append({'name': attribute_name, 'visible': True}) 
 
         attribute_values = response.xpath('//div[@class = "card-tabs__item_table"]/div/div[2]/text()').extract()
 
         for attribute_value in attribute_values:
-            attribute_num = attribute_values.index(attribute_value) + 1
+            attribute_num = attribute_values.index(attribute_value)
 
-            item[f'Attribute {attribute_num} value(s)'] = attribute_value        
-        
-        wcm.post('products', item).json()
+            item['attributes'][attribute_num]['options'] = [attribute_value]
+
+        self.log(wcm.post('products', item).json())
 
         yield item
  
