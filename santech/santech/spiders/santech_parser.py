@@ -1,4 +1,3 @@
-from random import randint
 from woocommerce import API
 import scrapy
 
@@ -86,43 +85,47 @@ class SantechParserSpider(scrapy.Spider):
                 category_id = category['id']
                 break
 
-        if category_id == None:
-            parent_category_id = None
-            new_category_data = None
+        try:
+            if category_id == None:
+                parent_category_id = None
+                new_category_data = None
 
-            for category in self.categories:
-                if category['name'] == parent_category:
-                    parent_category_id = category['id']
-                    break
+                for category in self.categories:
+                    if category['name'] == parent_category:
+                        parent_category_id = category['id']
+                        break
 
-            if parent_category_id == None:
-                parent_category_data = {
-                    'name': parent_category,
-                }
-                
-                parent_category_id = wcm.post('products/categories', parent_category_data).json()['id']
+                if parent_category_id == None:
+                    parent_category_data = {
+                        'name': parent_category,
+                    }
+                    
+                    parent_category_id = wcm.post('products/categories', parent_category_data).json()['id']
 
-                new_category_data = {
-                    'name': category_name,
-                    'parent': parent_category_id
+                    new_category_data = {
+                        'name': category_name,
+                        'parent': parent_category_id
 
-                }
+                    }
 
-            else:
-                new_category_data = {
-                    'name': category_name,
-                    'parent': parent_category_id
+                else:
+                    new_category_data = {
+                        'name': category_name,
+                        'parent': parent_category_id
 
-                }
+                    }
 
-            self.log(wcm.post('products/categories', new_category_data).json())
+                self.log(wcm.post('products/categories', new_category_data).json())
 
-            categories = get_categories(wcm)
+                categories = get_categories(wcm)
 
-            for category in categories:
-                if category['name'] == category_name:
-                    category_id = category['id']
-                    break
+                for category in categories:
+                    if category['name'] == category_name:
+                        category_id = category['id']
+                        break
+
+        except Exception as error:
+            self.log(error)
 
         try:
             item = {
