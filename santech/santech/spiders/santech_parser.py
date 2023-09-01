@@ -1,6 +1,6 @@
 from woocommerce import API
 import scrapy
-
+import time
 
 wcm = API(    
     url='https://sanstart.ru',
@@ -41,6 +41,7 @@ class SantechParserSpider(scrapy.Spider):
     }
     attributes_count = 0
     categories = get_categories(wcm)
+    products = []
 
 
     
@@ -117,9 +118,9 @@ class SantechParserSpider(scrapy.Spider):
 
                 self.log(wcm.post('products/categories', new_category_data).json())
 
-                categories = get_categories(wcm)
+                self.categories = get_categories(wcm)
 
-                for category in categories:
+                for category in self.categories:
                     if category['name'] == category_name:
                         category_id = category['id']
                         break
@@ -171,7 +172,26 @@ class SantechParserSpider(scrapy.Spider):
 
             item['attributes'][attribute_num]['options'] = [attribute_value]
 
-        wcm.post('products', item).json()
+        # wcm.post('products', item).json()
+        self.products.append(item)
 
         yield item
+
+
+    def closed(self, reason):
+
+        batch_size = 90
+
+        batches = [self.products[i:i+batch_size] for i in range(0, len(self.products), batch_size)]
+        
+        time.sleep(5)
+
+        for batch in batches:
+            # Отправляем запрос с продуктами из текущей части
+            # send_request(batch)
+            self.log(wcm.post('products/batch', data={'create': batch}).json())
+            time.sleep(5)
+
+        time.sleep(5)
+
  
