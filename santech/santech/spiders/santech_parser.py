@@ -180,18 +180,23 @@ class SantechParserSpider(scrapy.Spider):
 
     def closed(self, reason):
 
-        batch_size = 90
+        try:
 
-        batches = [self.products[i:i+batch_size] for i in range(0, len(self.products), batch_size)]
-        
-        time.sleep(5)
+            batch_size = 90
 
-        for batch in batches:
-            # Отправляем запрос с продуктами из текущей части
-            # send_request(batch)
-            self.log(wcm.post('products/batch', data={'create': batch}).json())
+            batches = [self.products[i:i+batch_size] for i in range(0, len(self.products), batch_size)]
+            
             time.sleep(5)
 
-        time.sleep(5)
+            for batch in batches:
+                # Отправляем запрос с продуктами из текущей части
+                # send_request(batch)
+                self.log(wcm.post('products/batch', data={'create': batch}).json())
+                time.sleep(5)
+
+            time.sleep(5)
+
+        except Exception:
+            pass
 
  
