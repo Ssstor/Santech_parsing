@@ -1,12 +1,12 @@
 from woocommerce import API
 import scrapy
-import time
 
 wcm = API(    
     url='https://sanstart.ru',
     consumer_key='ck_0a4297e6093ee5a75df83a36f82d5c2e7bfbab0c',
     consumer_secret='cs_b46226294c404f7d4fd53b83f50d7c0d827e0816',
-    version='wc/v3'
+    version='wc/v3',
+    timeout=1000
 )
 
 
@@ -73,21 +73,13 @@ class SantechParserSpider(scrapy.Spider):
         category_name = response.xpath('//span[@itemprop = "name"]/text()').extract()[-2]
         parent_category = response.xpath('//span[@itemprop = "name"]/text()').extract()[1]
 
-        wcm = API(    
-            url='https://sanstart.ru',
-            consumer_key='ck_0a4297e6093ee5a75df83a36f82d5c2e7bfbab0c',
-            consumer_secret='cs_b46226294c404f7d4fd53b83f50d7c0d827e0816',
-            version='wc/v3',
-            wp_api=True
-        )
-
         for category in self.categories:
             if category['name'] == category_name:
                 category_id = category['id']
                 break
 
         try:
-            if category_id == None:
+            if category_id is None:
                 parent_category_id = None
                 new_category_data = None
 
@@ -96,7 +88,7 @@ class SantechParserSpider(scrapy.Spider):
                         parent_category_id = category['id']
                         break
 
-                if parent_category_id == None:
+                if parent_category_id is None:
                     parent_category_data = {
                         'name': parent_category,
                     }
@@ -180,23 +172,12 @@ class SantechParserSpider(scrapy.Spider):
 
     def closed(self, reason):
 
-        try:
+        batch_size = 90
 
-            batch_size = 90
+        batches = [self.products[i:i+batch_size] for i in range(0, len(self.products), batch_size)]
 
-            batches = [self.products[i:i+batch_size] for i in range(0, len(self.products), batch_size)]
-            
-            time.sleep(5)
+        for batch in batches:
+            self.log(wcm.post('products/batch', data={'create': batch}).json())
 
-            for batch in batches:
-                # Отправляем запрос с продуктами из текущей части
-                # send_request(batch)
-                self.log(wcm.post('products/batch', data={'create': batch}).json())
-                time.sleep(5)
-
-            time.sleep(5)
-
-        except Exception:
-            pass
 
  
