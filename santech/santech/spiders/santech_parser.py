@@ -132,6 +132,8 @@ class SantechParserSpider(scrapy.Spider):
                 'attributes': []
             }
 
+
+
         except:
             item = {
                 'sku': response.xpath('//div[@class = "card-tabs__item_row"]/div[2]/text()').extract()[0],
@@ -165,7 +167,12 @@ class SantechParserSpider(scrapy.Spider):
             item['attributes'][attribute_num]['options'] = [attribute_value]
 
         # wcm.post('products', item).json()
-        self.products.append(item)
+
+        if item['categories'][0]['id'] == category_id:
+            self.products.append(item)
+
+        else:
+            pass
 
         yield item
 

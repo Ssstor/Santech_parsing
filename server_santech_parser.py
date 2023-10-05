@@ -1,5 +1,11 @@
+from scrapy.crawler import CrawlerProcess
 from woocommerce import API
+import argparse
 import scrapy
+
+parser = argparse.ArgumentParser()
+parser.add_argument('url')
+args = parser.parse_args()
 
 wcm = API(    
     url='https://sanstart.ru',
@@ -31,13 +37,14 @@ def get_categories(wcm):
 
 class SantechParserSpider(scrapy.Spider):
     name = 'santech_parser'
-    allowed_domains = ['santeh-kirov.ru']
+    allowed_domains = ['santeh-kirov.ru', 'www.santech-kirov.ru']
     start_urls = ['https://santeh-kirov.ru/']
-    url = open('url.txt', 'r').read().strip()  # 'https://santeh-kirov.ru/категория/газовые-котлы-и-комплектующие'
+    url = args.url # 'https://santeh-kirov.ru/категория/газовые-котлы-и-комплектующие'
     pages_count = 1
     # useragent = UserAgent()
     custom_settings = {
-        'FEEDS': { 'products.csv': { 'format': 'csv', 'overwrite': True}}
+        'FEEDS': { 'products.csv': { 'format': 'csv', 'overwrite': True}},
+        'DOWNLOAD_DELAY': 0.4
     }
     attributes_count = 0
     categories = get_categories(wcm)
@@ -59,6 +66,7 @@ class SantechParserSpider(scrapy.Spider):
 
         for page in range(1, self.pages_count + 1):
             url = f'{self.url}?PAGEN_6={page}'
+            self.log(url)
             yield scrapy.Request(url, callback=self.parse_url)
 
 
@@ -131,6 +139,8 @@ class SantechParserSpider(scrapy.Spider):
                 'regular_price': response.xpath('//div[@class = "card-info__price_value"]/text()').extract()[0].strip(),
                 'attributes': []
             }
+            
+            
 
         except:
             item = {
@@ -165,7 +175,11 @@ class SantechParserSpider(scrapy.Spider):
             item['attributes'][attribute_num]['options'] = [attribute_value]
 
         # wcm.post('products', item).json()
-        self.products.append(item)
+        if item['categories'][0]['id'] == category_id:
+            self.products.append(item)
+
+        else:
+            pass
 
         yield item
 
@@ -183,3 +197,11 @@ class SantechParserSpider(scrapy.Spider):
 
 
  
+if __name__ == "__main__":
+    process = CrawlerProcess()
+    process.crawl(SantechParserSpider)
+    process.start()
+    
+    print('<p align="center"><font color=green>Parsed!<font></p>')
+
+
