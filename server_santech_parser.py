@@ -139,9 +139,19 @@ class SantechParserSpider(scrapy.Spider):
                 'regular_price': response.xpath('//div[@class = "card-info__price_value"]/text()').extract()[0].strip(),
                 'attributes': []
             }
-            
-            
 
+            regular_price = item['regular_price']
+
+            number, currency = regular_price.replace(' ', '', 1).split()
+            number = float(number.replace(' ', ''))
+            number *= 0.4
+            number = '{:.2f}'.format(number)
+            item['regular_price'] = number + ' ' + currency
+
+            self.log(item['regular_price'])
+
+        # except Exception as error:
+        # self.log(error)
         except:
             item = {
                 'sku': response.xpath('//div[@class = "card-tabs__item_row"]/div[2]/text()').extract()[0],
